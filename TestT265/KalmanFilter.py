@@ -1,5 +1,6 @@
+import numpy as np
 class KF:
-    def __init__(self,theta ,omega):
+    def __init__(self, Y):
         # Initial error covariance matrix
         self.P = np.eye(2)
 
@@ -11,7 +12,7 @@ class KF:
         # Measurement noise covariance matrix 0.001
         self.R = np.eye(2) * 0.001
 
-        self.X = np.array([theta, omega])
+        self.X = np.array([Y[0], 0.785])
     def update(self,Y,dt):
         self.A = np.array([[1, dt],
                  [0, 1]])

@@ -2,6 +2,8 @@ import numpy as np
 import pyrealsense2 as rs
 import cv2
 import time
+from KalmanFilter import *
+import Laser
 
 pipeline = rs.pipeline()
 config = rs.config()
@@ -32,6 +34,12 @@ min_distance2 = 0.0  # in meters
 max_distance2 = 0.67  # in meters
 scale = ((700*np.sin(np.radians(34.5)))*2.0)/960.0
 scale2 = ((485*np.tan(np.radians(34.5)))*2.0)/960.0
+scalex = ((600*np.tan(np.radians(34.5))))/((470*np.tan(np.radians(34.5))))
+scaley = ((600*np.tan(np.radians(21))))/((470*np.tan(np.radians(21))))
+posX = 0
+posY = 0
+radius = 0
+theta = 0
 center = (100,100)
 mid_pixel = (480,270)
 gap = 130
@@ -53,6 +61,19 @@ align = rs.align(rs.stream.color)
 align = rs.align(rs.stream.color)
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 out = cv2.VideoWriter('outWithtrack.avi', fourcc, 30.0, (1280, 720))
+def findTheta(center,posX,posY):
+    disX = center[0]-posX 
+    disY = center[1]-posY
+    theta = np.arctan2(disY,disX)
+    return np.mod(theta + np.pi,np.pi)
+
+def findPos(r, theta , center):
+    r = r*1.164
+    x = r*np.cos(theta) + center[0]
+    y = r*np.sin(theta) + center[1]
+
+    return int(x), int(y)
+
 def align(pipeline):
         # Wait for a new frame
     frames = pipeline.wait_for_frames()
@@ -136,8 +157,18 @@ class Detection:
         gray_blurred = cv2.GaussianBlur(gray_image, (11, 11), 20)
         edges = cv2.Canny(gray_blurred, 50,70)
         return edges,gray_blurred
+
+INIT = 0
+WAIT = 1
+DETECT = 2
+SEND = 3
+
+state = INIT
+prev_theta = 0
+dt = 1/10
 while True:
     frame_count += 1
+    timestamp = time.time()
     # Wait for a new frame
     frames = pipeline.wait_for_frames()
     # Align the depth frame with the color frame
@@ -229,111 +260,194 @@ while True:
                 #     # print("move to right",0-center[1])
             else:
                 break
-    # cv2.line(color_data, (center[0]+gap,0), (center[0]+gap, 540), (0, 255, 0), 3)
-    # cv2.line(color_data, (center[0],0), (center[0], 540), (0, 255, 0), 3)
-    ellipse_center = (center[0]-int((480-center[0])*slice_multi),center[1]+int((center[1])*slice_multi2))
-    # print(ellipse_center)
-    # cv2.ellipse(color_data, ellipse_center, (int(100/scale),int(50/scale)), 0, 0, 360, highlight1, 5)
-    # cv2.ellipse(color_data, ellipse_center, (int(150/scale),int(110/scale)), 0, 0, 360, highlight2, 5)
-    # cv2.ellipse(color_data, ellipse_center, (int(200/scale),int(160/scale)), 0, 0, 360, highlight3, 5)
-    cv2.ellipse(color_data, ellipse_center, (int(90/scale),int(65/scale)), 0, 0, 180, highlight1, 5)
-    cv2.ellipse(color_data, ellipse_center, (int(160/scale),int(125/scale)), 0, 0, 180, highlight2, 5)
-    cv2.ellipse(color_data, ellipse_center, (int(215/scale),int(185/scale)), 0, 0, 180, highlight3, 5)
+    # ellipse_center = (center[0]-int((480-center[0])*slice_multi),center[1]+int((center[1])*slice_multi2))
+    ellipse_center = center
+            
+    # cv2.ellipse(color_data, ellipse_center, (int(90/scale),int(65/scale)), 0, 0, 180, highlight1, 5)
+    # cv2.ellipse(color_data, ellipse_center, (int(160/scale),int(125/scale)), 0, 0, 180, highlight2, 5)
+    # cv2.ellipse(color_data, ellipse_center, (int(215/scale),int(185/scale)), 0, 0, 180, highlight3, 5)
+    cv2.ellipse(color_data, ellipse_center, (int(100*scalex),int(100*scaley)), 0, 0, 180, highlight1, 5)
+    cv2.ellipse(color_data, ellipse_center, (int(150*scalex),int(150*scaley)), 0, 0, 180, highlight2, 5)
+    cv2.ellipse(color_data, ellipse_center, (int(200*scalex),int(200*scaley)), 0, 0, 180, highlight3, 5)
     cv2.circle(color_data, (center[0],int(ellipse_center[1]+(45*scale))), 2, (0, 255, 0), 2)  # outer circle
     cv2.circle(color_data, (center[0],int(ellipse_center[1]+(135*scale))), 2, (0, 0, 255), 2)
     cv2.circle(color_data, (center[0],int(ellipse_center[1]+(225*scale))), 2, (255, 0, 0), 3)  # center
+    contours = get_ellipse_contour(ellipse_center, ellipse_axes_lengths, 0)
+    contours2 = get_ellipse_contour(ellipse_center, ellipse_axes_lengths2, 0)
+    contours3 = get_ellipse_contour(ellipse_center, ellipse_axes_lengths3, 0)
+    # Draw the contours on a white image
+    contour_image = np.ones((540, 960, 3), dtype=np.uint8) * 255
+    # cv2.drawContours(contour_image, contours3, -1, (255, 0, 0), -1)
+    # cv2.drawContours(contour_image, contours2, -1, (0, 255, 0), -1)
+    # cv2.drawContours(contour_image, contours, -1, (0, 0, 255), -1)
+    # cv2.imshow("sd",contour_image)
     for cnt in depth1.find_Depth()[1]:
         contour_area = cv2.contourArea(cnt)
         if contour_area > 300 and contour_area < 5000:#limit lower BB
             x, y, w, h = cv2.boundingRect(cnt) # พื้นที่ของแท่งวางธงที่สามารถอยู่ได้ x = 000 , y = 000 , w = 000 , h = 000
             cv2.rectangle(color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            posX = int(((x+w//2)-480)/scalex)+480
+            posY = int(((y+10)-270)/scaley)+270
+            cv2.circle(color_data, (posX,posY), 2, (0, 255, 0), 2)
+            theta = findTheta(center,posX,posY) 
             # cv2.circle(color_data,(int(x+w/2),int(y+h/2)), 1, (0, 255, 255), 5)
-            contours = get_ellipse_contour(ellipse_center, ellipse_axes_lengths, 0)
-            contours2 = get_ellipse_contour(ellipse_center, ellipse_axes_lengths2, 0)
-            contours3 = get_ellipse_contour(ellipse_center, ellipse_axes_lengths3, 0)
-            # Draw the contours on a white image
-            contour_image = np.ones((540, 960, 3), dtype=np.uint8) * 255
-            # cv2.drawContours(contour_image, contours3, -1, (255, 0, 0), -1)
-            # cv2.drawContours(contour_image, contours2, -1, (0, 255, 0), -1)
-            # cv2.drawContours(contour_image, contours, -1, (0, 0, 255), -1)
-            # cv2.imshow("sd",contour_image)
+            radius = np.sqrt(((center[0]-posX)**2)+((center[1]-posY)**2))
+            # print(center[0])
             if len(contours) != 0:
-                distance = cv2.pointPolygonTest(contours[0], (x+w/2, y), measureDist=True)
-                distance2 = cv2.pointPolygonTest(contours2[0], (x+w/2, y), measureDist=True)
-                distance3 = cv2.pointPolygonTest(contours3[0], (x+w/2, y), measureDist=True)
+                distance = cv2.pointPolygonTest(contours[0], ((x+w/2), y), measureDist=True)
+                distance2 = cv2.pointPolygonTest(contours2[0], ((x+w/2), y), measureDist=True)
+                distance3 = cv2.pointPolygonTest(contours3[0], ((x+w/2), y), measureDist=True)
             # elif len(contours) != 0 and x<480:
             #     distance = cv2.pointPolygonTest(contours[0], (x+w, y), measureDist=True)
             #     distance2 = cv2.pointPolygonTest(contours2[0], (x+w, y), measureDist=True)
             #     distance3 = cv2.pointPolygonTest(contours3[0], (x+w, y), measureDist=True)
-                if y > 5:
-                    if distance >= 0:
-                        start_time = time.time()
-                        # print("Point is inside 1",y)
-                        highlight1 = (0,255,0)
-                        highlight2 = (255,0,0)
-                        highlight3 = (255,0,0)
-                        # print("a")
-                        if wait == 1 and place == 1:
-                            print(place)
-                            wait = 0
-                            cap = 1
-                        else:
-                            wait = 0
-                        place = 1
-                    elif distance < 0 and distance2 >= 0:
-                        start_time = time.time()
-                        # print("Point is inside 2",y)
-                        highlight1 = (255,0,0)
-                        highlight2 = (0,255,0)
-                        highlight3 = (255,0,0)
-                        # print("b")
-                        if wait == 1 and place == 2:
-                            print(place)
-                            wait = 0
-                            cap = 2
-                        else:
-                            wait = 0
-                        place = 2
-                    elif distance2 < 0 and distance3 >= 0:
-                        start_time = time.time()
-                        # print("Point is inside 3",y) 
-                        highlight1 = (255,0,0)
-                        highlight2 = (255,0,0)
-                        highlight3 = (0,255,0)
-                        # print("c")
-                        if wait == 1 and place == 3:
-                            if dep:
-                                deploy_time = time.time()
-                                dep = 0
-                            print(place)
-                            wait = 0
-                            cap = 3
-                        else:
-                            wait = 0
-                        place = 3
-                    else:
-                        # print("Point is outside",y)
-                        highlight1 = (255,0,0)
-                        highlight2 = (255,0,0)
-                        highlight3 = (255,0,0)
-                        print(start_time,time.time() - start_time)
-                        if time.time() - start_time > 0.9:  
-                            wait = 1
-                    if center[0] in range(x,x+w) :
-                        if cap !=  0:
-                            if cap == 1 and place == 1:
-                                cv2.imshow("Deploy",color_data)
-                                cap = 0
-                    if center[0] in range(x,x+w) :
-                        if cap !=  0:
-                            if cap == 2 and place == 2:
-                                cv2.imshow("Deploy",color_data)
-                                cap = 0
-                    if center[0] in range(x,x+w) :
-                        if cap !=  0:
-                            if cap == 3 and place == 3:
-                                cv2.imshow("Deploy",color_data)
-                                cap = 0
+            # if y > 5:
+            #     if distance >= 0: #(state 1)
+            #         start_time = time.time()
+            #         # print("Point is inside 1",y)
+            #         highlight1 = (0,255,0)
+            #         highlight2 = (255,0,0)
+            #         highlight3 = (255,0,0)
+            #         # print("a")
+            #         if wait == 1 and place == 1:
+            #             print(place)
+            #             wait = 0
+            #             cap = 1
+            #         else:
+            #             wait = 0
+            #         place = 1
+            #     elif distance < 0 and distance2 >= 0:  #(state 2)
+            #         start_time = time.time()
+            #         # print("Point is inside 2",y)
+            #         highlight1 = (255,0,0)
+            #         highlight2 = (0,255,0)
+            #         highlight3 = (255,0,0)
+            #         # print("b")
+            #         if wait == 1 and place == 2:
+            #             print(place)
+            #             wait = 0
+            #             cap = 2
+            #         else:
+            #             wait = 0
+            #         place = 2
+            #     elif distance2 < 0 and distance3 >= 0: #(state 3)
+            #         start_time = time.time()
+            #         # print("Point is inside 3",y) 
+            #         highlight1 = (255,0,0)
+            #         highlight2 = (255,0,0)
+            #         highlight3 = (0,255,0)
+            #         # print("c")
+            #         if wait == 1 and place == 3:
+            #             if dep:
+            #                 deploy_time = time.time()
+            #                 dep = 0
+            #             # print(place)
+            #             wait = 0
+            #             cap = 3
+            #         else:
+            #             wait = 0
+            #         place = 3
+            #     else: #(init state)
+            #         # print("Point is outside",y)
+            #         highlight1 = (255,0,0)
+            #         highlight2 = (255,0,0)
+            #         highlight3 = (255,0,0)
+            #         # print(start_time,time.time() - start_time)
+            #         if time.time() - start_time > 0.9:  
+            #             wait = 1
+            #     if center[0] in range(x,x+w) :
+            #         if cap !=  0:
+            #             if cap == 1 and place == 1:
+            #                 cv2.imshow("Deploy",color_data)
+            #                 cap = 0
+            #     if center[0] in range(x,x+w) :
+            #         if cap !=  0:
+            #             if cap == 2 and place == 2:
+            #                 cv2.imshow("Deploy",color_data)
+            #                 cap = 0
+            #     if center[0] in range(x,x+w) :
+            #         if cap !=  0:
+            #             if cap == 3 and place == 3:
+            #                 cv2.imshow("Deploy",color_data)
+            #                 cap = 0
+    # state_count = 0
+    # r = 0
+    # prev_r = 4
+    # print(theta,radius)
+    # if theta <= -2.4:
+    #     if theta > -2.4:
+    #         if r == prev_r:
+    #             state_count = 1
+    #         prev_r = r
+    #     if theta > -1 and state_count == 1:
+    #         None    
+    # print("r ",radius)
+    handPosX = (180*1.164)
+    handPosY = (270-center[1]) + 40*1.164
+    cv2.circle(color_data, (center[0]-int(handPosX),center[1]+int(handPosY)), 2, (0, 0, 0), 2) 
+    # print(handPosY)
+    des_theta = np.abs(np.arctan2(handPosX,handPosY)) + np.pi/2
+    # print(np.rad2deg(des_theta))
+    theta = findTheta(center, posX, posY)
+
+    r_offset = 25
+    if (radius < 100 + r_offset and radius > 80 - r_offset):
+        radius = 100
+    elif (radius < 150 + r_offset and radius > 150 - r_offset):
+        radius = 150
+    elif (radius < 200 + r_offset and radius > 200 - r_offset):
+        radius = 200
+    else : radius =0
+    # print(radius)
+    Y = [theta, (theta - prev_theta)/dt]
+
+    if(state == INIT):
+        state_count = 0
+        prev_radius = 0
+        is_repeat = 0
+        
+
+        state = WAIT
+    elif(state == WAIT ):
+        # print(theta)
+        if theta <= np.pi/6 and theta > 0:
+            #init kalman
+            
+            # print(Y)
+            kf = KF(Y)
+            state = DETECT
+    elif(state == DETECT):
+
+        kf.update(Y,dt)
+        xk, yk = findPos(radius, kf.X[0] , center)
+        cv2.circle(color_data, (xk,yk), 2, (0, 0, 255), 2)
+
+
+
+        # print(theta)
+        if (kf.X[0] >= np.pi/6) and not is_repeat:
+            if radius == prev_radius:
+                is_repeat = True
+            
+            prev_radius = radius
+            # print(is_repeat)
+            state = WAIT
+        elif(kf.X[0] >= 2*np.pi/3 and theta <= des_theta and is_repeat):
+            count_time = (des_theta - kf.X[0])/0.785
+            print(count_time*1000)
+            # Laser.send_time(count_time*1500)
+            Laser.send_time(int(count_time*1000)-333)
+            # print("sss")
+            state = SEND
+        
+    elif(state == SEND):
+        # print("place")
+        pass
+        
+            
+
+    prev_theta = theta
+    dt = time.time() - timestamp
     # for cnt in edges1.find_Edge()[2]:
     #     contour_area = cv2.contourArea(cnt)
     #     if contour_area < 500:#limit lower BB
@@ -384,10 +498,10 @@ while True:
           # center
     # cv2.drawContours(edges,contours_red,-1,(255,0,0),2)
     # cv2.drawContours(color_data,depth1.find_Depth()[2],-1,(255,0,0),2) 
-    if not dep:
-        if (time.time() - deploy_time) >= 1.35:
-            cv2.imshow("ddfddd",color_data) 
-            dep = 1    
+    # if not dep:
+    #     if (time.time() - deploy_time) >= 1.35:
+    #         cv2.imshow("ddfddd",color_data) 
+    #         dep = 1    
 
     cv2.imshow('gray', edges1.find_Edge()[1])
     # # cv2.imshow('gray_bb', gray_blurred)
