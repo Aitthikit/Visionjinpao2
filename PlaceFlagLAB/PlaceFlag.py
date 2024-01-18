@@ -68,6 +68,54 @@ class LowPassFilter:
         else:
             self.filtered_value = self.alpha * new_value + (1 - self.alpha) * self.filtered_value
         return self.filtered_value
+    
+class Getraw_Data:
+    def __init__(self, scalex, scaley):
+        self.scalex = scalex
+        self.scaley = scaley
+        self.posX = 0
+        self.posY = 0
+        self.center = (100,100)
+        self.radius = 0
+        self.color_data = None
+
+    def create_Hatty(self, mask):
+        kernel = np.ones((10, 10), np.uint8)
+        mask = cv2.erode(mask, kernel, iterations=1)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+        mask = cv2.erode(mask, kernel, iterations=1)
+        return mask
+
+    def find_Center(self, contour):
+        # center = (100, 100)
+        for cnt in contour:
+            contour_area = cv2.contourArea(cnt)
+            if contour_area > 1500:
+                x3, y3, w3, h3 = cv2.boundingRect(cnt)
+                self.center = int(x3 + (w3 / 2)), int(h3 - (w3 / 2))
+                # cv2.rectangle(self.color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
+                # cv2.circle(self.color_data, center, int((w3 / 4) + (h3 / 2)), (0, 0, 255), 5)
+                # cv2.circle(self.color_data, center, 1, (0, 255, 0), 5)
+                if self.center[1] not in range(0, 30):
+                    None
+                else:
+                    break
+        return self.center
+
+    def find_Hole(self, contour,center):
+        # radius = 200
+        for cnt in contour:
+            contour_area = cv2.contourArea(cnt)
+            if 300 < contour_area < 5000:
+                x, y, w, h = cv2.boundingRect(cnt)
+                cv2.rectangle(self.color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                self.posX = int(((x + w // 2) - 480) / self.scalex) + 480
+                self.posY = int(((y + 10) - 270) / self.scaley) + 270
+                cv2.circle(self.color_data, (posX, posY), 2, (0, 255, 0), 2)
+                self.radius = np.sqrt(((center[0] - posX) ** 2) + ((center[1] - posY) ** 2))
+        return self.radius,self.posX,self.posY
+    
 class Getimage:
     def __init__(self, frame):
         self.frame = frame
@@ -85,66 +133,30 @@ class Getimage:
         contours_black, _ = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(depth_roi_image, contours_black, -1, (255), thickness=cv2.FILLED)
         _, binary_image2 = cv2.threshold(depth_roi_image2, 230, 255, cv2.THRESH_BINARY)
-        binary_image2 = create_hatty(binary_image2)
+        binary_image2 = calDepth.create_Hatty(binary_image2)
         contours_white, _ = cv2.findContours(binary_image2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.imshow("asd",depth_roi_image2)
         return depth_roi_image,contours_black,contours_white
-def findTheta(center,posX,posY):
-    disX = center[0]-posX 
-    disY = center[1]-posY
-    theta = np.arctan2(disY,disX)
-    return np.mod(theta + np.pi,np.pi)
-def findPos(r, theta , center):
-    r = r*1.164
-    x = r*np.cos(theta) + center[0]
-    y = r*np.sin(theta) + center[1]
-    return int(x), int(y)
-def find_Center(contour):
-    center = (100,100)
-    for cnt in contour: 
-        contour_area = cv2.contourArea(cnt)
-        if contour_area > 1500:#limit lower BB
-            x3, y3, w3, h3 = cv2.boundingRect(cnt)
-            center = int(x3+(w3/2)), int(h3-(w3/2)) #center of place (000,000)
-            cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
-            cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
-            cv2.circle(color_data, center, 1, (0, 255, 0), 5)
-            if center[1] not in range(0,30):
-                None
-                # if center[1] >= 0:
-                #     # print("move to left",0-center[1])
-                # else:
-                #     # print("move to right",0-center[1])
-            else:
-                break
-        # else:
-        #     center = (100,100)
-    return center
-def find_Hole(contour):
-    radius = 0
-    for cnt in contour:
-        contour_area = cv2.contourArea(cnt)
-        if contour_area > 300 and contour_area < 5000:#limit lower BB
-            x, y, w, h = cv2.boundingRect(cnt) # พื้นที่ของแท่งวางธงที่สามารถอยู่ได้ x = 000 , y = 000 , w = 000 , h = 000
-            cv2.rectangle(color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            posX = int(((x+w//2)-480)/scalex)+480
-            posY = int(((y+10)-270)/scaley)+270
-            cv2.circle(color_data, (posX,posY), 2, (0, 255, 0), 2)
-            # theta = findTheta(center,posX,posY) 
-            # cv2.circle(color_data,(int(x+w/2),int(y+h/2)), 1, (0, 255, 255), 5)
-            radius = np.sqrt(((center[0]-posX)**2)+((center[1]-posY)**2))
-    return radius
-def pixel_convert(mid_pixel,pixel):
-    x = pixel[0]-mid_pixel[0]
-    y = pixel[1]-mid_pixel[1]
-    return x*scale,y*scale
-def create_hatty(mask):
-    kernel = np.ones((10,10),np.uint8)
-    mask = cv2.erode(mask,kernel,iterations = 1)
-    mask = cv2.dilate(mask,kernel,iterations = 1)
-    mask = cv2.dilate(mask,kernel,iterations = 1)
-    mask = cv2.erode(mask,kernel,iterations = 1)
-    return mask
+class Cal:
+    def __init__(self, scale):
+        self.scale = scale
+
+    def findTheta(self, center, posX, posY):
+        disX = center[0] - posX
+        disY = center[1] - posY
+        theta = np.arctan2(disY, disX)
+        return np.mod(theta + np.pi, np.pi)
+
+    def findPos(self, r, theta, center):
+        r = r * 1.164
+        x = r * np.cos(theta) + center[0]
+        y = r * np.sin(theta) + center[1]
+        return int(x), int(y)
+
+    def pixelConvert(self, mid_pixel, pixel):
+        x = pixel[0] - mid_pixel[0]
+        y = pixel[1] - mid_pixel[1]
+        return x * self.scale, y * self.scale
 
 lowpass_filter_x = LowPassFilter(alpha=0.5)
 lowpass_filter_y = LowPassFilter(alpha=0.5)
@@ -166,11 +178,15 @@ while True:
     color_data = cv2.resize(np.asanyarray(color_frame.get_data()),(960,540))
     depth1 = Getimage(depth_data)
     # edges1 = Getimage(color_data)
-
     # Define radius and center from frame
-    center = find_Center(depth1.find_Depth()[2])
-    radius = find_Hole(depth1.find_Depth()[1])
-
+    calDepth = Getraw_Data(scalex,scaley)
+    center = calDepth.find_Center(depth1.find_Depth()[2])
+    allData = calDepth.find_Hole(depth1.find_Depth()[1],center)
+    radius = allData[0]
+    posX = allData[1]
+    posX = allData[2]
+    calcu = Cal(scale)
+    # print(center,radius)
     # Find Hand of Robot From Center and Scale
     handPosX = (180*scale)
     handPosY = (270-center[1]) + 40*scale
@@ -181,8 +197,8 @@ while True:
     #Find theta from center and hand position
     des_theta = np.abs(np.arctan2(handPosX,handPosY)) + np.pi/2
     # print(np.rad2deg(des_theta))
-    theta = findTheta(center, posX, posY)
-
+    theta = calcu.findTheta(center, posX, posY)
+    print(theta,des_theta,radius)
     #Start state for kalman estimate and place
     r_offset = 25
     if (radius < 100 + r_offset and radius > 80 - r_offset):
@@ -212,7 +228,7 @@ while True:
     elif(state == DETECT):
 
         kf.update(Y,dt)
-        xk, yk = findPos(radius, kf.X[0] , center)
+        xk, yk = calcu.findPos(radius, kf.X[0] , center)
         cv2.circle(color_data, (xk,yk), 2, (0, 0, 255), 2)
 
 
@@ -299,3 +315,51 @@ while True:
 # def is_point_inside_circle(point, circle_center, circle_radius):
 #     distance = np.sqrt((point[0] - circle_center[0])**2 + (point[1] - circle_center[1])**2)
 #     return distance <= circle_radius
+    
+
+
+
+
+# def find_Center(contour):
+#     center = (100,100)
+#     for cnt in contour: 
+#         contour_area = cv2.contourArea(cnt)
+#         if contour_area > 1500:#limit lower BB
+#             x3, y3, w3, h3 = cv2.boundingRect(cnt)
+#             center = int(x3+(w3/2)), int(h3-(w3/2)) #center of place (000,000)
+#             cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
+#             cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
+#             cv2.circle(color_data, center, 1, (0, 255, 0), 5)
+#             if center[1] not in range(0,30):
+#                 None
+#                 # if center[1] >= 0:
+#                 #     # print("move to left",0-center[1])
+#                 # else:
+#                 #     # print("move to right",0-center[1])
+#             else:
+#                 break
+#         # else:
+#         #     center = (100,100)
+#     return center
+# def find_Hole(contour):
+#     radius = 0
+#     for cnt in contour:
+#         contour_area = cv2.contourArea(cnt)
+#         if contour_area > 300 and contour_area < 5000:#limit lower BB
+#             x, y, w, h = cv2.boundingRect(cnt) # พื้นที่ของแท่งวางธงที่สามารถอยู่ได้ x = 000 , y = 000 , w = 000 , h = 000
+#             cv2.rectangle(color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
+#             posX = int(((x+w//2)-480)/scalex)+480
+#             posY = int(((y+10)-270)/scaley)+270
+#             cv2.circle(color_data, (posX,posY), 2, (0, 255, 0), 2)
+#             # theta = findTheta(center,posX,posY) 
+#             # cv2.circle(color_data,(int(x+w/2),int(y+h/2)), 1, (0, 255, 255), 5)
+#             radius = np.sqrt(((center[0]-posX)**2)+((center[1]-posY)**2))
+#     return radius
+
+# def create_hatty(mask):
+#     kernel = np.ones((10,10),np.uint8)
+#     mask = cv2.erode(mask,kernel,iterations = 1)
+#     mask = cv2.dilate(mask,kernel,iterations = 1)
+#     mask = cv2.dilate(mask,kernel,iterations = 1)
+#     mask = cv2.erode(mask,kernel,iterations = 1)
+#     return mask
