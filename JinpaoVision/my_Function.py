@@ -1,65 +1,14 @@
 import numpy as np
-import pyrealsense2 as rs
 import math
 import cv2
 from itertools import permutations
 import seaborn as sns  
 import matplotlib.pyplot as plt
-import seaborn as sns
 from scipy.signal import find_peaks
 from statistics import mode
 
-
-
 known_height = 110
 # focal_length = 650
-# def find_Distance(pixel_lenght) :
-#     distance = (known_length * focal_length) / pixel_lenght
-#     return round(distance,2)
-def auto_exposure_adjustment(image, target_mean=150):
-    # Convert the image to grayscale
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Calculate the mean intensity of the image
-    current_mean = np.mean(gray_image)
-    
-    # Calculate the exposure adjustment factor
-    exposure_adjustment = target_mean / current_mean
-    
-    # Apply the exposure adjustment to the image
-    adjusted_image = cv2.convertScaleAbs(image, alpha=exposure_adjustment, beta=0)
-
-    return adjusted_image
-
-def cumulative_distribution(image):
-    hist, bins = np.histogram(image.flatten(), bins=256, range=[0, 256])
-    cdf = hist.cumsum() / hist.sum()
-    return cdf, bins
-
-def getCDF(image):
-    cdf, bins = cumulative_distribution(image)
-    cdf = np.insert(cdf, 0, [0] * int(bins[0]))
-    cdf = np.append(cdf, [1] * int(255 - bins[-1]))
-    return cdf
-
-def histMatch(cdfInput, cdfTemplate, imageInput):
-    pixels = np.arange(256)
-    new_pixels = np.interp(cdfInput, cdfTemplate, pixels)
-    imageMatch = (np.reshape(new_pixels[imageInput.ravel()], imageInput.shape)).astype(np.uint8)
-    return imageMatch
-
-def histogram_matching(image, imageTemplate):
-
-    imageResult = np.zeros(image.shape, dtype=np.uint8)
-
-    # CDF and histogram
-    for channel in range(3):
-        cdfInput = getCDF(image[:, :, channel])
-        cdfTemplate = getCDF(imageTemplate[:, :, channel])
-        imageResult[:, :, channel] = histMatch(cdfInput, cdfTemplate, image[:, :, channel])
-
-    return imageResult
-
 
 def find_pos(image,w_pix,x,y) :
     # pixel_size_mm = w_h / known_height
@@ -75,29 +24,6 @@ def find_pos(image,w_pix,x,y) :
 def find_res(image) :
     height, width, channels = image.shape
     return [width,height]
-
-def cameraFrame2cameraOrigin(position,theta):
-    theta = -np.deg2rad(theta) #reverse direction
-    R = [[np.cos(theta), 0, np.sin(theta)]
-         ,[0, 1, 0]
-         ,[-np.sin(theta), 0, np.cos(theta)]]
-    return np.matmul(R,position)
-
-def align(pipeline):
-    
-        # Wait for a new frame
-    frames = pipeline.wait_for_frames()
-    align = rs.align(rs.stream.color)
-    aligned_frames = align.process(frames)
-    depth_frame = aligned_frames.get_depth_frame()
-    color_frame = aligned_frames.get_color_frame()
-
-    # if not depth_frame or not color_frame:
-    #     continue
-
-    depth_data = np.asanyarray(depth_frame.get_data())
-    color_data = np.asanyarray(color_frame.get_data())
-    return depth_data, color_data
 
 def create_ROI(min_distance, max_distance, color_data, depth_data):
     depth_roi_mask = np.logical_and(depth_data >= min_distance * 1000, depth_data <= max_distance * 1000)
@@ -161,7 +87,6 @@ def BoxPath(robot_init, Color):
     # print (min_path, color, min_cost, CostA)
     return min_path, color, min_cost, CostA
 
-
 def separate_hatty(contour,color):
     points_array = np.array(contour)[:, 0]
     
@@ -220,53 +145,8 @@ def create_hatty(mask):
 
     return mask
 
-def flatten_data(data):
-    color = []
-    for sublist in data:
-        for subsublist in sublist:
-            # print(subsublist)
-            # print(np.array(subsublist, dtype = 'object')[:,0])
-            color.append(np.array(subsublist, dtype = 'object')[:,0].tolist())
-    
-    return np.array([point[1] for sublist in data for subsublist in sublist for point in subsublist if isinstance(point[1], list)]), np.array(color).reshape(-1)
-
-def plot_3d_scatter(data, x_label='X Axis', y_label='Y Axis', z_label='Z Axis', title=None):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Plotting all data points
-    ax.scatter(data[:, 0], data[:, 1], data[:, 2], c='blue', label='Raw Data')
-
-    # Set axis labels
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    ax.set_zlabel(z_label)
-
-    # Add a legend
-    ax.legend()
-
-    # Set plot title if provided
-    if title:
-        plt.title(title)
-
-    # Show the plot
-    plt.show()
-# Flattening the data to get only the position coordinates
-def filterDensity(kde_values, threshold_percentage = 0.7):
-    # Get the maximum density value
-    max_density = max(kde_values[1])
-    print(max_density)
-
-    # Set the threshold as a percentage of the maximum density
-    
-    threshold_value = max_density * threshold_percentage
-    
-    # Filter data based on the threshold
-    return [(kde_values[0])[kde_values[1] > threshold_value],(kde_values[1])[kde_values[1] > threshold_value]]
 def euclidean_distance(point1, point2):
     return np.linalg.norm(np.array(point1) - np.array(point2))
-
-
 
 def positionFilter(Position,Color):
 
@@ -285,25 +165,7 @@ def positionFilter(Position,Color):
     # filtered_kde_values_y = filterDensity(kde_values_y)
 
     kde_values_z = sns.kdeplot(Position[:,2]).get_lines()[2].get_data()
-    # filtered_kde_values_z = filterDensity(kde_values_z)
-    
-    # print(kde_values_x[0])
-    # print(kde_values_y[0])
-    # print(kde_values_z[0])
-    
-    # Plot the filtered KDE
-    # plt.show()
-    # kde_values_x = sns.kdeplot(kde_values_x[0]).get_lines()[0].get_data()
-    # kde_values_y = sns.kdeplot(kde_values_y[0]).get_lines()[1].get_data()
-    # kde_values_z = sns.kdeplot(kde_values_z[0]).get_lines()[2].get_data()
 
-    # plt.plot(filtered_kde_values_x[0], filtered_kde_values_x[1], label='X')
-    # plt.plot(filtered_kde_values_y[0], filtered_kde_values_y[1], label='Y')
-    # plt.plot(filtered_kde_values_z[0], filtered_kde_values_z[1], label='Z')
-
-    # print(filtered_kde_values_x[0])
-    # print(filtered_kde_values_y[0])
-    # print(filtered_kde_values_z[0])
 
 
 
@@ -392,14 +254,6 @@ def separate_hatty(contour,color):
     # cv2.putText(contour_area_image, "Strip " + str(w) + "  " + str(h), (x_min, (y_min1+y_min2)//2 +10), cv2.FONT_HERSHEY_SIMPLEX,0.5, (255,255,255), 2)
     
     return x_box,y_box,w_box,h_box ,x_strip,y_strip,w_strip,h_strip
-
-
-
-
-
-
-
-
 
 class BOXDETECTION:
     def __init__(self):
@@ -628,7 +482,6 @@ class BOXDETECTION:
         cv2.imshow("mask blue", self.mask_blue)
         cv2.imshow("mask red", self.mask_red)
         cv2.imshow("mask green", self.mask_green)
-
 
 class STRIPDETECTION:
     def __init__(self):
