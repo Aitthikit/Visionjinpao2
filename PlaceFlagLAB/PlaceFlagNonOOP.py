@@ -52,7 +52,6 @@ prev_theta = 0
 dt = 1/10
 
 start_time = time.time()
-
 config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 pipeline.start(config)
@@ -113,6 +112,7 @@ def create_hatty(mask):
 
 lowpass_filter_x = LowPassFilter(alpha=0.5)
 lowpass_filter_y = LowPassFilter(alpha=0.5)
+
 while True:
     frame_count += 1
     timestamp = time.time()
@@ -139,14 +139,16 @@ while True:
             cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
             cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
             cv2.circle(color_data, center, 1, (0, 255, 0), 5)
-            if center[1] not in range(0,30):
-                None
-                # if center[1] >= 0:
-                #     # print("move to left",0-center[1])
-                # else:
-                #     # print("move to right",0-center[1])
-            else:
-                break
+            # if center[1] not in range(0,30):
+            #     None
+            #     if center[1] >= 0:
+            #         print("move to left",0-center[1])
+            #     else:
+            #         print("move to right",0-center[1])
+            # else:
+            #     break
+            target_X,target_Y = pixel_convert(mid_pixel,center)
+            print(target_X,target_Y)
     for cnt in depth1.find_Depth()[1]:
         contour_area = cv2.contourArea(cnt)
         if contour_area > 300 and contour_area < 5000:#limit lower BB
@@ -217,7 +219,7 @@ while True:
             count_time = (des_theta - kf.X[0])/0.785
             print(count_time*1000)
             # Laser.send_time(count_time*1500)
-            Laser.send_time(int(count_time*1000)-333)
+            # Laser.send_time(int(count_time*1000)-333)
             # print("sss")
             state = SEND
         
