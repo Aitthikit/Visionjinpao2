@@ -36,7 +36,24 @@ import numpy as np
 
 
 
+def get_hsv_range(frame, point1, point2):
+    # Extract the region of interest (ROI) around the points
+    roi = frame[min(point1[1], point2[1]):max(point1[1], point2[1]),
+                min(point1[0], point2[0]):max(point1[0], point2[0])]
 
+    # Convert the ROI to HSV color space
+    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+
+    # Calculate the min and max HSV values
+    min_hue = np.min(hsv_roi[:, :, 0])
+    max_hue = np.max(hsv_roi[:, :, 0])
+    min_s = np.min(hsv_roi[:, :, 1])
+    max_s = np.max(hsv_roi[:, :, 1])
+    min_v = np.min(hsv_roi[:, :, 2])
+    max_v = np.max(hsv_roi[:, :, 2])
+    print(min_s,max_s,min_v,max_v)
+
+    return min_hue, max_hue
 
    
 def calHist_y(img):

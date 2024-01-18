@@ -4,7 +4,7 @@ import numpy as np
 from func.Realsense import RealSense
 from func.Display import DISPLAY
 from func.ColorCalibrate import CALIRBRATE
-
+import my_Function as ff
 import torch
 import time
 
@@ -45,16 +45,20 @@ def main():
 
         contrast_factor = 2.5  # You can adjust this value accordingly
         image_with_adjusted_contrast = calibrate.adjust_contrast(frame, contrast_factor)
-        cv2.imshow('con', image_with_adjusted_contrast)
+        
         # Adjust exposure
-        exposure_factor = 5  # You can adjust this value accordingly
+        exposure_factor = 3  # You can adjust this value accordingly
         image_with_adjusted_exposure = calibrate.adjust_exposure(image_with_adjusted_contrast, exposure_factor)
+        cv2.imshow('con', image_with_adjusted_exposure)
 
+
+        roi_mask, contour_area = ff.create_ROI(0.3,0.8,image_with_adjusted_exposure, depth_data)
+        cv2.imshow("Roi",contour_area)        
         # Display the frame
         cv2.circle(frame, points_r, 1,(0, 255, 0))
         cv2.imshow("Frame", frame)
         # start = time.time_ns()
-        pred = model(image_with_adjusted_exposure)
+        pred = model(contour_area)
         # print(time.time_ns()- start)
         # print(pred.xyxy)
         pred_list = np.array(pred.xyxy[0][:].tolist()).astype(object)
@@ -64,17 +68,17 @@ def main():
         if(len(pred_list)):
             pred_list[:, -1] = BoxClass[pred_list[:, -1].astype(int)]
             # print(pred_list)
-            display.show_detect(pred_list, frame)
+            display.show_detect(pred_list, contour_area)
         
 
         end_time = time.time()
         frame_rate = 1 / (end_time - start_time)
         
         # # Overlay frame rate on the video frame
-        cv2.putText(frame, f"FPS: {frame_rate:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(contour_area, f"FPS: {frame_rate:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
-        cv2.imshow("Detect", frame)
+        cv2.imshow("Detect", contour_area)
         # Wait for a key press
         key = cv2.waitKey(1) & 0xFF
 
