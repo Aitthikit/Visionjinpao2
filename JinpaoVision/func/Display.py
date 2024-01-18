@@ -25,4 +25,5 @@ class DISPLAY:
 
                     # Put text on the image
                     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    
                 

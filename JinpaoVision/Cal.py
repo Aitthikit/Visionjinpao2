@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 
-from utils.Realsense import RealSense
-from utils.Display import DISPLAY
-from utils.ColorCalibrate import CALIRBRATE
+from func.Realsense import RealSense
+from func.Display import DISPLAY
+from func.ColorCalibrate import CALIRBRATE
 
 import torch
 import time
@@ -11,29 +11,19 @@ import time
 points = []
 points_r = (0,0)
 
-
-
-
 def on_mouse_click(event, x, y, flags, param):
     global points
     global points_r
-    
 
-    
     if event == cv2.EVENT_LBUTTONUP:
         points_r = (x, y)
         points.append((x, y))
-        
-        # cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-        # cv2.imshow("Frame", frame)
-
-
 
 def main():
     #camera config
     rs = RealSense(1280,720, "Box")
     
-    model = torch.hub.load('WongKinYiu/yolov7','custom','epoch_099.pt')
+    model = torch.hub.load('WongKinYiu/yolov7','custom','model/yolov7_tiny.pt')
     model.eval()  # Set the model to evaluation mode
    
     calibrate = CALIRBRATE()
