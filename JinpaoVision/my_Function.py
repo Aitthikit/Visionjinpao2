@@ -40,9 +40,9 @@ def cost_function(color, position, robot_pos):
         Vy = 5 # velocity of y in box/sec
 
         if color == "red":
-            offset = -1
-        elif color == "blue":
             offset = 1
+        elif color == "blue":
+            offset = -1
         else:
             offset = 0
 
