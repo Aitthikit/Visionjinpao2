@@ -17,6 +17,7 @@ class RealSense:
         self.color_sensor.set_option(rs.option.enable_auto_white_balance, True)
 
         self.light_level = 59
+        self.light_level = 250
         self.color_sensor.set_option(rs.option.exposure, self.light_level)
 
     def get_frame(self):
