@@ -128,7 +128,7 @@ class flagDetect:
                     state = WAIT
                 elif(kf.X[0] >= 2*np.pi/3 and theta <= des_theta and is_repeat):
                     count_time = (des_theta - kf.X[0])/0.785
-                    print(count_time*1000)
+                    print((count_time*1000)+camera_L)
                     print("End")
                     # Laser.send_time(count_time*1500)
                     # Laser.send_time(int(count_time*1000)-camera_L)
@@ -202,8 +202,8 @@ class flagDetect:
     #     print(mainCa())
     #     key = cv2.waitKey(1) & 0xFF
 FlagDet = flagDetect()
-# FlagDet.place_blocking()
-while(1):
-    pos = FlagDet.mainCa()
-    print(pos)
-    key = cv2.waitKey(1) & 0xFF
+FlagDet.place_blocking()
+# while(1):
+#     pos = FlagDet.mainCa()
+#     print(pos)
+#     key = cv2.waitKey(1) & 0xFF
