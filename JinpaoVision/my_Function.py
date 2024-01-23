@@ -152,7 +152,7 @@ def positionFilter(Position,Color):
 
     Position = np.array(Position)
     
-    
+    # print(Position)
     # print(Position[0])
     # print(Position[:,1])
     # print(Position[:,2])
@@ -189,14 +189,14 @@ def positionFilter(Position,Color):
     peak_position_x = sorted(kde_values_x[0][peaks_x[peak_density_idx][::-1][:3]])
     peak_position_y = sorted(kde_values_y[0][peaks_y[peak_density_idy][::-1][:3]], reverse=True)
     peak_position_z = kde_values_z[0][peaks_z[peak_density_idz][::-1][0]]
-    plt.show()
+    # plt.show()
 
     position = []
     for i in range(3):
         for j in range(3):
             position.append([peak_position_x[j],peak_position_y[i],peak_position_z])
 
-    distance = 40
+    distance = 50
     color = []
     for c in range(9):
         temp = []

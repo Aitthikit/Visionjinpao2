@@ -10,6 +10,22 @@ import time
 
 points = []
 points_r = (0,0)
+def boxbox(pred_list):  
+    output_coordinates = xyxy2center(pred_list)
+    
+    up = output_coordinates[output_coordinates[:, 1].astype(float) < 720 / 2]
+    down = output_coordinates[output_coordinates[:, 1].astype(float) > 720 / 2]
+    
+
+    # Get the indices that would sort the array based on the first column
+    sorted_indices_up = np.argsort(up[:, 0].astype(float))
+    sorted_indices_down = np.argsort(down[:, 0].astype(float))
+
+    # Use the indices to sort the array
+    sorted_data_up = up[sorted_indices_up]
+    sorted_data_down = down[sorted_indices_down]
+
+    return np.array([sorted_data_up[:,-1],sorted_data_down[:,-1]])
 
 def on_mouse_click(event, x, y, flags, param):
     global points
@@ -19,10 +35,39 @@ def on_mouse_click(event, x, y, flags, param):
         points_r = (x, y)
         points.append((x, y))
 
+def xyxy2center(coordinates):
+    result = []
+    for box in coordinates:
+        x1, y1, x2, y2, confidence, color = box
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        result.append([center_x, center_y, color])
+
+    return np.array(result)
+def boxy(pred_list):  
+    output_coordinates = xyxy2center(pred_list)
+    
+    up = output_coordinates[output_coordinates[:, 1].astype(float) < 720 / 2]
+    down = output_coordinates[output_coordinates[:, 1].astype(float) > 720 / 2]
+    
+
+    # Get the indices that would sort the array based on the first column
+    sorted_indices_up = np.argsort(up[:, 0].astype(float))
+    sorted_indices_down = np.argsort(down[:, 0].astype(float))
+
+    # Use the indices to sort the array
+    sorted_data_up = up[sorted_indices_up]
+    sorted_data_down = down[sorted_indices_down]
+
+    return np.vstack((sorted_data_up,sorted_data_down))
+
+# def find_angle(pos1,pos2):
+
 def main():
     #camera config
     rs = RealSense(1280,720, "Box")
-    
+    rs.light_level = 190
+    rs.light_add()
     model = torch.hub.load('WongKinYiu/yolov7','custom','model/yolov7_tiny.pt')
     model.eval()  # Set the model to evaluation mode
    
@@ -63,14 +108,45 @@ def main():
         # print(pred.xyxy)
         pred_list = np.array(pred.xyxy[0][:].tolist()).astype(object)
 
-
+        boxx = ['red','green','blue','red','red','green','blue','blue','green']
         # Create an array of indices for replacement
         if(len(pred_list)):
             pred_list[:, -1] = BoxClass[pred_list[:, -1].astype(int)]
-            # print(pred_list)
-            display.show_detect(pred_list, contour_area)
-        
 
+            for pred in pred_list:
+                    pred[-1] = str(pred[-1]).split("_")[0]
+                    
+            cclist = boxy(pred_list)
+            avgX = np.mean(cclist[:,0].astype(np.float32))
+            avgY = np.mean(cclist[:,1].astype(np.float32))
+            diff = avgX - 1280/2
+            # print("diff : ", diff)
+
+            cv2.circle(contour_area, (int(avgX),int(avgY)), 10, (255,255,255), thickness=-1)
+            cv2.circle(contour_area, (1280//2,720//2), 2, (0,0,255), thickness=-1)
+            if len(cclist) == 6:
+                # print(cclist[:,:2])
+                # for clist in cclist:
+                #     print(clist[2])
+                # print("\n")
+                x1 ,y1,_= cclist[3]
+                x2 ,y2,_= cclist[5]
+                z1 = (depth_data[int(float(y1)),int(float(x1))])
+                z2 = (depth_data[int(float(y2)),int(float(x2))])
+                print(x1,y1,z1)
+                print(x1,y2,z2)
+                # print((int(z2)-int(z1)))
+                
+                print(np.rad2deg(np.arcsin((int(z2)-int(z1))/400)))
+                # print(ff.find_pos(contour_area,int(float(x2)-float(x1)),float(x1),float(y2)))
+                print("\n")
+                
+            display.show_detect(pred_list, contour_area)
+            
+            # print(boxbox(pred_list))
+
+           
+        # time.sleep(3/30)
         end_time = time.time()
         frame_rate = 1 / (end_time - start_time)
         
