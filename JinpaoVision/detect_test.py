@@ -8,6 +8,23 @@ import my_Function as ff
 import torch
 import time
 
+def boxy(pred_list):  
+    output_coordinates = xyxy2center(pred_list)
+    
+    up = output_coordinates[output_coordinates[:, 1].astype(float) < 720 / 2]
+    down = output_coordinates[output_coordinates[:, 1].astype(float) > 720 / 2]
+    
+
+    # Get the indices that would sort the array based on the first column
+    sorted_indices_up = np.argsort(up[:, 0].astype(float))
+    sorted_indices_down = np.argsort(down[:, 0].astype(float))
+
+    # Use the indices to sort the array
+    sorted_data_up = up[sorted_indices_up]
+    sorted_data_down = down[sorted_indices_down]
+
+    return np.vstack((sorted_data_up,sorted_data_down))
+
 def xyxy2center(coordinates):
     result = []
     for box in coordinates:
@@ -153,13 +170,57 @@ class BoxDetect:
                 if(np.all(arr == pat)):
                     return (dir)
         # cv2.waitKey(1)
+    def finefindPickShelf(self):
+        depth_data, color_data = self.box_cam.get_frame()
+
+        contrast_factor = 2.5  # You can adjust this value accordingly
+        image_with_adjusted_contrast = self.calibrate.adjust_contrast(color_data, contrast_factor)
+            
+        # Adjust exposure
+        exposure_factor = 3  # You can adjust this value accordingly
+        image_with_adjusted_exposure = self.calibrate.adjust_exposure(image_with_adjusted_contrast, exposure_factor)
+        roi_mask, contour_area = ff.create_ROI(0.3,0.8,image_with_adjusted_exposure, depth_data)
+
+        pred = self.model(contour_area)
+        pred_list = np.array(pred.xyxy[0][:].tolist()).astype(object)
+        # Create an array of indices for replacement
+        if(len(pred_list)):
+            pred_list[:, -1] = self.BoxClass[pred_list[:, -1].astype(int)]
+
+            for pred in pred_list:
+                    pred[-1] = str(pred[-1]).split("_")[0]
+                    
+            cclist = boxy(pred_list)
+            avgX = np.mean(cclist[:,0].astype(np.float32))
+            avgY = np.mean(cclist[:,1].astype(np.float32))
+
+            cv2.circle(contour_area, (int(avgX),int(avgY)), 10, (255,255,255), thickness=-1)
+            cv2.circle(contour_area, (1280//2,720//2), 2, (0,0,255), thickness=-1)
+            if len(cclist) == 6:
+                x1 ,y1,_= cclist[3]
+                x_cen ,y_cen,_= cclist[4]
+                x2 ,y2,_= cclist[5]
+                z1 = (depth_data[int(float(y1)),int(float(x1))])
+                z2 = (depth_data[int(float(y2)),int(float(x2))])
+                dif_x = (1280//2) - float(x_cen)
+                
+                theta = np.arcsin((int(z2)-int(z1))/400)
+                y_measure = (int(z2)+int(z1))/2
+                fov = 37.5
+
+                x_measure = np.tan(np.deg2rad(fov))*y_measure
+                x_px = x_measure/640
+                x_des = x_px*dif_x
+                
+                return x_des, y_measure-300,theta
+        return 999,999,999
 
 
 
 boxDetect = BoxDetect()
-print("fin init")
+# print("fin init")
 print(boxDetect.findPath())
-print("fin findpath")
+# print("fin findpath")
 Go = ""
 while 1:
     go = boxDetect.findPickShelf()
@@ -168,6 +229,13 @@ while 1:
     print(Go)
     if go == "center":
         break
+
+while 1:
+    x,y,z = boxDetect.finefindPickShelf()
+    print(x,y,z)
+    if (np.abs(x) <= 10) and (np.abs(y) <= 10) and (z <= 0.1):
+        print("fin")
+        break 
 
 
 

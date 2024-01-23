@@ -97,7 +97,7 @@ def main():
         cv2.imshow('con', image_with_adjusted_exposure)
 
 
-        roi_mask, contour_area = ff.create_ROI(0.3,0.8,image_with_adjusted_exposure, depth_data)
+        roi_mask, contour_area = ff.create_ROI(0.2,0.5,image_with_adjusted_exposure, depth_data)
         cv2.imshow("Roi",contour_area)        
         # Display the frame
         cv2.circle(frame, points_r, 1,(0, 255, 0))
@@ -119,27 +119,26 @@ def main():
             cclist = boxy(pred_list)
             avgX = np.mean(cclist[:,0].astype(np.float32))
             avgY = np.mean(cclist[:,1].astype(np.float32))
-            diff = avgX - 1280/2
-            # print("diff : ", diff)
 
             cv2.circle(contour_area, (int(avgX),int(avgY)), 10, (255,255,255), thickness=-1)
             cv2.circle(contour_area, (1280//2,720//2), 2, (0,0,255), thickness=-1)
             if len(cclist) == 6:
-                # print(cclist[:,:2])
-                # for clist in cclist:
-                #     print(clist[2])
-                # print("\n")
                 x1 ,y1,_= cclist[3]
+                x_cen ,y_cen,_= cclist[4]
                 x2 ,y2,_= cclist[5]
                 z1 = (depth_data[int(float(y1)),int(float(x1))])
                 z2 = (depth_data[int(float(y2)),int(float(x2))])
-                print(x1,y1,z1)
-                print(x1,y2,z2)
-                # print((int(z2)-int(z1)))
+                dif_x = (1280//2) - float(x_cen)
                 
-                print(np.rad2deg(np.arcsin((int(z2)-int(z1))/400)))
-                # print(ff.find_pos(contour_area,int(float(x2)-float(x1)),float(x1),float(y2)))
-                print("\n")
+                theta = np.arcsin((int(z2)-int(z1))/400)
+                y_measure = (int(z2)+int(z1))/2
+                fov = 37.5
+
+                x_measure = np.tan(np.deg2rad(fov))*y_measure
+                x_px = x_measure/640
+                x_des = x_px*dif_x
+                
+                print(x_des,y_measure-300,theta)
                 
             display.show_detect(pred_list, contour_area)
             
