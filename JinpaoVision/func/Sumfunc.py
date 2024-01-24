@@ -32,7 +32,7 @@ class Getimage:
         _, binary_image2 = cv2.threshold(depth_roi_image2, 230, 255, cv2.THRESH_BINARY)
         binary_image2 = create_hatty(binary_image2)
         contours_white, _ = cv2.findContours(binary_image2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.imshow("asd",depth_roi_image)
+        # cv2.imshow("asd",depth_roi_image)
         return depth_roi_image,contours_black,contours_white
     
 def findTheta(center,posX,posY):

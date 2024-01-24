@@ -8,14 +8,7 @@ from func.Sumfunc import *
 frame_count = 0
 x_sum = 0
 y_sum = 0
-slice_multi = 0.2
-slice_multi2 = 0.3
-# min_distance = 0.47  # in meters
-# max_distance = 0.57  # in meters
-# min_distance2 = 0.0  # in meters
-# max_distance2 = 0.67  # in meters
 scale = 1.164
-scale2 = 1.173
 scalex = ((600*np.tan(np.radians(34.5))))/((470*np.tan(np.radians(34.5))))
 scaley = ((600*np.tan(np.radians(21))))/((470*np.tan(np.radians(21))))
 theta = 0
@@ -35,6 +28,20 @@ start_time = time.time()
 class flagDetect:
     def __init__(self):
         self.real = RealSense(1280,720,"Flag")
+        self.center = (0,0)
+        self.posX = 0
+        self.posY = 0
+        self.radius = 0
+        self.INIT = 0
+        self.WAIT = 1
+        self.DETECT = 2
+        self.SEND = 3
+        self.state = self.INIT
+        self.prev_theta = 0
+        self.dt = 1/10
+        self.kf = None
+        self.is_repeat = 0
+        self.prev_radius = 0
     def flag_Pos(self):
         #Open to test FPS
         # start_time = time.time()
@@ -115,146 +122,127 @@ class flagDetect:
         # resized_black_image = cv2.resize(black_image, (960, 540))
         # cv2.imshow('Webcam Circles Detection', resized_frame)
         # cv2.imshow('Detected Circles and Lines', resized_black_image)
-    def place_blocking(self):
-        center = (0,0)
-        posX = 0
-        posY = 0
-        radius = 0
-        INIT = 0
-        WAIT = 1
-        DETECT = 2
-        SEND = 3
-        state = INIT
-        prev_theta = 0
-        dt = 1/10
-        depth1 = Getimage(min_distance = 0.47,
-                          max_distance = 0.57,
-                          min_distance2 = 0.0,
-                          max_distance2 = 0.67)
-        while True:
-            timestamp = time.time()
-            # if aa == 1:
-            #     time.sleep(count_time)
-            depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
-            color_data =  cv2.resize(self.real.get_frame()[1],(960,540))
-            # if aa == 1:
-            #     cv2.imshow("fireeeee", color_data)
-            #     aa = 0
-            for cnt in depth1.find_Depth(depth_data)[2]: 
-                contour_area = cv2.contourArea(cnt)
-                if contour_area > 1500:#limit lower BB
-                    x3, y3, w3, h3 = cv2.boundingRect(cnt)
-                    center = int(x3+(w3/2)), int(h3-(w3/2)) #center of place (000,000)
-                    cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
-                    cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
-                    cv2.circle(color_data, center, 1, (0, 255, 0), 5)
-                    # target_X,target_Y = pixel_convert(mid_pixel,center,scale)
-                    # print(target_X,target_Y)
-            for cnt in depth1.find_Depth(depth_data)[1]:
-                contour_area = cv2.contourArea(cnt)
-                if contour_area > 300 and contour_area < 5000:#limit lower BB
-                    x, y, w, h = cv2.boundingRect(cnt) # พื้นที่ของแท่งวางธงที่สามารถอยู่ได้ x = 000 , y = 000 , w = 000 , h = 000
-                    cv2.rectangle(color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                    posX = int(((x+w//2)-480)/scalex)+480
-                    posY = int(((y+10)-270)/scaley)+270
-                    cv2.circle(color_data, (posX,posY), 2, (0, 255, 0), 2)
-                    # theta = findTheta(center,posX,posY) 
-                    # cv2.circle(color_data,(int(x+w/2),int(y+h/2)), 1, (0, 255, 255), 5)
-                    radius = np.sqrt(((center[0]-posX)**2)+((center[1]-posY)**2))
-            # handPosX = (180*scale)
-            # handPosY = (270-center[1]) + 40*scale
-            handPosX = 0*scale
-            handPosY = (270-center[1])
-            #Show hand position
-            cv2.circle(color_data,(305,200), 4, (0, 255, 0), 2)
-            cv2.line(color_data,(305,0),(305,540),(255,0,0),2)
-            cv2.circle(color_data, (center[0]-int(handPosX),center[1]+int(handPosY)), 2, (0, 0, 0), 2) 
-            # print(handPosY)
+    def place_blocking(self,depth1):
+        # while True:
+        timestamp = time.time()
+        # if aa == 1:
+        #     time.sleep(count_time)
+        depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
+        color_data =  cv2.resize(self.real.get_frame()[1],(960,540))
+        # if aa == 1:
+        #     cv2.imshow("fireeeee", color_data)
+        #     aa = 0
+        for cnt in depth1.find_Depth(depth_data)[2]: 
+            contour_area = cv2.contourArea(cnt)
+            if contour_area > 1500:#limit lower BB
+                x3, y3, w3, h3 = cv2.boundingRect(cnt)
+                self.center = int(x3+(w3/2)), int(h3-(w3/2)) #center of place (000,000)
+                cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
+                cv2.circle(color_data, self.center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
+                cv2.circle(color_data, self.center, 1, (0, 255, 0), 5)
+                # target_X,target_Y = pixel_convert(mid_pixel,center,scale)
+                # print(target_X,target_Y)
+        for cnt in depth1.find_Depth(depth_data)[1]:
+            contour_area = cv2.contourArea(cnt)
+            if contour_area > 300 and contour_area < 5000:#limit lower BB
+                x, y, w, h = cv2.boundingRect(cnt) # พื้นที่ของแท่งวางธงที่สามารถอยู่ได้ x = 000 , y = 000 , w = 000 , h = 000
+                cv2.rectangle(color_data, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                self.posX = int(((x+w//2)-480)/scalex)+480
+                self.posY = int(((y+10)-270)/scaley)+270
+                cv2.circle(color_data, (self.posX,self.posY), 2, (0, 255, 0), 2)
+                # theta = findTheta(center,posX,posY) 
+                # cv2.circle(color_data,(int(x+w/2),int(y+h/2)), 1, (0, 255, 255), 5)
+                self.radius = np.sqrt(((self.center[0]-self.posX)**2)+((self.center[1]-self.posY)**2))
+        # handPosX = (180*scale)
+        # handPosY = (270-center[1]) + 40*scale
+        handPosX = 0*scale
+        handPosY = (270-self.center[1])
+        #Show hand position
+        cv2.circle(color_data,(305,200), 4, (0, 255, 0), 2)
+        cv2.line(color_data,(305,0),(305,540),(255,0,0),2)
+        cv2.circle(color_data, (self.center[0]-int(handPosX),self.center[1]+int(handPosY)), 2, (0, 0, 0), 2) 
+        # print(handPosY)
 
-            #Find theta from center and hand position
-            des_theta = np.abs(np.arctan2(handPosX,handPosY)) + np.pi/2
-            # print(np.rad2deg(des_theta))
-            theta = findTheta(center, posX, posY)
-            # print(theta,des_theta,radius)
-            #Start state for kalman estimate and place
-            r_offset = 25
-            if (radius < 100 + r_offset and radius > 80 - r_offset):
-                radius = 100
-            elif (radius < 150 + r_offset and radius > 150 - r_offset):
-                radius = 150
-            elif (radius < 200 + r_offset and radius > 200 - r_offset):
-                radius = 200
-            else : radius =0
-            # print(radius) #Gripper Value
-            Y = [theta, (theta - prev_theta)/dt]
-            if(state == INIT):
-                state_count = 0
-                prev_radius = 0
-                is_repeat = 0
+        #Find theta from center and hand position
+        des_theta = np.abs(np.arctan2(handPosX,handPosY)) + np.pi/2
+        # print(np.rad2deg(des_theta))
+        theta = findTheta(self.center, self.posX, self.posY)
+        # print(theta,des_theta,radius)
+        #Start state for kalman estimate and place
+        r_offset = 25
+        if (self.radius < 100 + r_offset and self.radius > 80 - r_offset):
+            self.radius = 100
+        elif (self.radius < 150 + r_offset and self.radius > 150 - r_offset):
+            self.radius = 150
+        elif (self.radius < 200 + r_offset and self.radius > 200 - r_offset):
+            self.radius = 200
+        else : self.radius =0
+        # print(radius) #Gripper Value
+        Y = [theta, (theta - self.prev_theta)/self.dt]
+        if(self.state == self.INIT):
+            state_count = 0
+            self.prev_radius = 0
+            self.is_repeat = 0
+            
+
+            self.state = self.WAIT
+        elif(self.state == self.WAIT ):
+            # print(theta)
+            if theta <= np.pi/6 and theta > 0:
+                #init kalman
                 
+                # print(Y)
+                self.kf = KF(Y)
+                self.state = self.DETECT
+        elif(self.state == self.DETECT):
 
-                state = WAIT
-            elif(state == WAIT ):
-                # print(theta)
-                if theta <= np.pi/6 and theta > 0:
-                    #init kalman
-                    
-                    # print(Y)
-                    kf = KF(Y)
-                    state = DETECT
-            elif(state == DETECT):
-
-                kf.update(Y,dt)
-                xk, yk = findPos(radius, kf.X[0] , center)
-                cv2.circle(color_data, (xk,yk), 2, (0, 0, 255), 2)
+            self.kf.update(Y,self.dt)
+            xk, yk = findPos(self.radius, self.kf.X[0] , self.center)
+            cv2.circle(color_data, (xk,yk), 2, (0, 0, 255), 2)
 
 
 
-                # print(theta)
-                if (kf.X[0] >= np.pi/6) and not is_repeat:
-                    if radius == prev_radius:
-                        is_repeat = True
-                    
-                    prev_radius = radius
-                    # print(is_repeat)
-                    state = WAIT
-                elif(kf.X[0] >= np.pi/4 and theta <= des_theta and is_repeat):
-                    count_time = (des_theta - kf.X[0])/0.785
-                    print((count_time*1000)+camera_L)
-                    print("End")
-                    aa = 1
-                    # Laser.send_time(count_time*1500)
-                    # Laser.send_time(int(count_time*1000)-camera_L)
-                    # print("sss")
-                    state = SEND
-            elif(state == SEND):
-                # print("place")
-                pass
+            # print(theta)
+            if (self.kf.X[0] >= np.pi/6) and not self.is_repeat:
+                if self.radius == self.prev_radius:
+                    self.is_repeat = True
                 
-            prev_theta = theta
-            dt = time.time() - timestamp
+                self.prev_radius = self.radius
+                # print(is_repeat)
+                self.state = self.WAIT
+            elif(self.kf.X[0] >= np.pi/4 and theta <= des_theta and self.is_repeat):
+                count_time = (des_theta - self.kf.X[0])/0.785
+                print((count_time*1000)+camera_L)
+                print("End")
+                aa = 1
+                # Laser.send_time(count_time*1500)
+                # Laser.send_time(int(count_time*1000)-camera_L)
+                # print("sss")
+                self.state = self.SEND
+        elif(self.state == self.SEND):
+            # print("place")
+            pass
+            
+        self.prev_theta = theta
+        self.dt = time.time() - timestamp
 
-            #Open to test FPS
-            # end_time = time.time()
-            # elapsed_time = end_time - timestamp
-            # print(1/elapsed_time)
-            #Visual
-            cv2.circle(color_data, (480,270),1, (0, 0, 255), 5)
-            cv2.imshow("RGB Frame with ROI", color_data)
-            # print(scale)
-            cv2.imshow("ROI Frame", depth1.find_Depth(depth_data)[0])
-            # print(100/scale,150/scale,200/scale)
-            # Wait for a key press, and exit the loop if 'q' is pressed
-            # out.write(color_data)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                # out.release()
-                break
+        #Open to test FPS
+        # end_time = time.time()
+        # elapsed_time = end_time - timestamp
+        # print(1/elapsed_time)
+        #Visual
+        cv2.circle(color_data, (480,270),1, (0, 0, 255), 5)
+        cv2.imshow("RGB Frame with ROI", color_data)
+        # print(scale)
+        cv2.imshow("ROI Frame", depth1.find_Depth(depth_data)[0])
+        # print(100/scale,150/scale,200/scale)
+        # Wait for a key press, and exit the loop if 'q' is pressed
+        # out.write(color_data)
+        # key = cv2.waitKey(1) & 0xFF
+        # if key == ord('q'):
+        #     # out.release()
+        #     break
     def mainCa(self):
-        # min_distance = 0.47  # in meters
-        # max_distance = 0.57  # in meters
-        # min_distance2 = 0.0  # in meters
-        # max_distance2 = 0.67  # in meters
         #Open to test FPS
         # start_time = time.time()
         depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
@@ -296,8 +284,16 @@ class flagDetect:
         # Wait for a key press, and exit the loop if 'q' is pressed
         # out.write(color_data)
 FlagDet = flagDetect()
-# FlagDet.place_blocking()
+depth1 = Getimage(min_distance = 0.47,
+                    max_distance = 0.57,
+                    min_distance2 = 0.0,
+                    max_distance2 = 0.67)
 while(1):
-    pos = FlagDet.another_F()
-    print(pos)
-    key = cv2.waitKey(1) & 0xFF
+    hold = FlagDet.place_blocking(depth1)
+    print(hold)
+    key = cv2.waitKey(1) & 0xF
+
+# while(1):
+#     pos = FlagDet.another_F()
+#     print(pos)
+#     key = cv2.waitKey(1) & 0xFF
