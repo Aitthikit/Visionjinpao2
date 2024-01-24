@@ -8,7 +8,8 @@ from func.Sumfunc import *
 frame_count = 0
 x_sum = 0
 y_sum = 0
-scale = 1.164
+scale_Place = 1.164
+scale_Pick = 1.164
 scalex = ((600*np.tan(np.radians(34.5))))/((470*np.tan(np.radians(34.5))))
 scaley = ((600*np.tan(np.radians(21))))/((470*np.tan(np.radians(21))))
 theta = 0
@@ -59,7 +60,7 @@ class flagDetect:
                 cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
                 cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
                 cv2.circle(color_data, center, 1, (0, 255, 0), 5)
-                target_X,target_Y = pixel_convert(mid_pixel,center,scale)
+                target_X,target_Y = pixel_convert(mid_pixel,center,scale_Pick)
                 # cv2.imshow("RGB Frame with ROI", color_data)
                 #Open to test FPS
                 # end_time = time.time()
@@ -110,7 +111,7 @@ class flagDetect:
                 # Draw circles on the black image
                 cv2.circle(black_image, center, i[2], (0, 255, 0), 2)  # outer circle
                 cv2.circle(black_image, center, 2, (0, 0, 255), 3)  # center
-                target_X,target_Y = pixel_convert(mid_pixel,center,scale)
+                target_X,target_Y = pixel_convert(mid_pixel,center,scale_Pick)
                 return target_X,target_Y
 
         if lines is not None:
@@ -155,7 +156,7 @@ class flagDetect:
                 self.radius = np.sqrt(((self.center[0]-self.posX)**2)+((self.center[1]-self.posY)**2))
         # handPosX = (180*scale)
         # handPosY = (270-center[1]) + 40*scale
-        handPosX = 0*scale
+        handPosX = 0*scale_Place
         handPosY = (270-self.center[1])
         #Show hand position
         cv2.circle(color_data,(305,200), 4, (0, 255, 0), 2)
@@ -214,6 +215,7 @@ class flagDetect:
                 count_time = (des_theta - self.kf.X[0])/0.785
                 print((count_time*1000)+camera_L)
                 print("End")
+                return (count_time*1000)+(camera_L/1000) # Wait Time Value
                 aa = 1
                 # Laser.send_time(count_time*1500)
                 # Laser.send_time(int(count_time*1000)-camera_L)
@@ -242,7 +244,7 @@ class flagDetect:
         # if key == ord('q'):
         #     # out.release()
         #     break
-    def mainCa(self):
+    def calibration_(self):
         #Open to test FPS
         # start_time = time.time()
         depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
@@ -267,7 +269,7 @@ class flagDetect:
                 #         print("move to right",0-center[1])
                 # else:
                 #     break
-                target_X,target_Y = pixel_convert(mid_pixel,center,scale)
+                target_X,target_Y = pixel_convert(mid_pixel,center,scale_Place)
                 
                 #Open to test FPS
                 # end_time = time.time()
@@ -289,8 +291,14 @@ depth1 = Getimage(min_distance = 0.47,
                     min_distance2 = 0.0,
                     max_distance2 = 0.67)
 while(1):
+    pos = FlagDet.flag_Pos()
+    print(pos)
+    key = cv2.waitKey(1) & 0xF
+while(1):
     hold = FlagDet.place_blocking(depth1)
     print(hold)
+    if hold != None:
+        break
     key = cv2.waitKey(1) & 0xF
 
 # while(1):
