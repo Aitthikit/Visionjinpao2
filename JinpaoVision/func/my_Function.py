@@ -129,7 +129,7 @@ def BoxPath(robot_init, Color):
                 min_path = RobotPath[1:]
                 color = Color[idx[0]],Color[idx[1]],Color[idx[2]]
     # print (min_path, color, min_cost, CostA)
-    return min_path, color, min_cost, CostA
+    return np.array(min_path), np.array(color), min_cost, CostA
 
 def separate_hatty(contour,color):
     points_array = np.array(contour)[:, 0]
