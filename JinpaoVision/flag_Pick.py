@@ -6,10 +6,11 @@ from func.KalmanFilter import KF
 from func.Sumfunc import *
 
 frame_count = 0
-min_distance = 0  # in meters
-max_distance = 0.30  # in meters
-min_distance2 = 0.5  # in meters
-max_distance2 = 0.65  # in meters
+# min_distance = 0  # in meters
+# max_distance = 0.30  # in meters
+# min_distance2 = 0.5  # in meters
+# max_distance2 = 0.65  # in meters
+
 scale = 1.164
 mid_pixel = (480,270)
 lowpass_filter_x = LowPassFilter(alpha=0.5)
@@ -24,8 +25,11 @@ class flagPick:
         # start_time = time.time()
         depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
         color_data =  cv2.resize(self.real.get_frame()[1],(960,540))
-        depth1 = Getimage(depth_data)
-        for cnt in depth1.find_Depth(min_distance,max_distance,min_distance2,max_distance2)[1]: 
+        depth1 = Getimage(min_distance = 0,
+                          max_distance = 0.30,
+                          min_distance2 = 0.5,
+                          max_distance2 = 0.65)
+        for cnt in depth1.find_Depth(depth_data)[1]: 
             contour_area = cv2.contourArea(cnt)
             if contour_area > 600 and contour_area < 5000:#limit lower BB
                 x3, y3, w3, h3 = cv2.boundingRect(cnt)

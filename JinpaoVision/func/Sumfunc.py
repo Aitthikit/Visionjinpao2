@@ -11,14 +11,17 @@ class LowPassFilter:
             self.filtered_value = self.alpha * new_value + (1 - self.alpha) * self.filtered_value
         return self.filtered_value
 class Getimage:
-    def __init__(self, frame):
-        self.frame = frame
-    def find_Depth(self,min_distance,max_distance,min_distance2,max_distance2):
-        depth_roi_mask = np.logical_and(self.frame >= min_distance * 1000, self.frame <= max_distance * 1000)
-        depth_roi_mask2 = np.logical_and(self.frame >= min_distance2 * 1000, self.frame <= max_distance2 * 1000)
+    def __init__(self,min_distance,max_distance,min_distance2,max_distance2):
+        self.min_distance = min_distance
+        self.min_distance2 = min_distance2
+        self.max_distance = max_distance
+        self.max_distance2 = max_distance2
+    def find_Depth(self,frame):
+        depth_roi_mask = np.logical_and(frame >= self.min_distance * 1000, frame <= self.max_distance * 1000)
+        depth_roi_mask2 = np.logical_and(frame >= self.min_distance2 * 1000, frame <= self.max_distance2 * 1000)
         # Apply the mask to the depth data
-        depth_roi = np.where(depth_roi_mask, self.frame, 0)
-        depth_roi2 = np.where(depth_roi_mask2, self.frame, 0)
+        depth_roi = np.where(depth_roi_mask, frame, 0)
+        depth_roi2 = np.where(depth_roi_mask2, frame, 0)
         # Create a grayscale image from the ROI data
         depth_roi_image = np.uint8(255-(depth_roi / np.max(depth_roi) * 255))
         depth_roi_image2 = np.uint8((depth_roi2 / np.max(depth_roi2) * 255))
