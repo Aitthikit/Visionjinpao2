@@ -9,6 +9,50 @@ from statistics import mode
 
 known_height = 110
 # focal_length = 650
+def xyxy2center(coordinates):
+    result = []
+    for box in coordinates:
+        x1, y1, x2, y2, confidence, color = box
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        result.append([center_x, center_y, color])
+
+    return np.array(result)
+
+
+def boxbox(pred_list):  
+    output_coordinates = xyxy2center(pred_list)
+
+    up = output_coordinates[output_coordinates[:, 1].astype(float) < 720 / 2]
+    down = output_coordinates[output_coordinates[:, 1].astype(float) > 720 / 2]
+
+
+    # Get the indices that would sort the array based on the first column
+    sorted_indices_up = np.argsort(up[:, 0].astype(float))
+    sorted_indices_down = np.argsort(down[:, 0].astype(float))
+
+    # Use the indices to sort the array
+    sorted_data_up = up[sorted_indices_up]
+    sorted_data_down = down[sorted_indices_down]
+
+    return np.array([sorted_data_up[:,-1],sorted_data_down[:,-1]])
+
+def boxy(pred_list):  
+    output_coordinates = xyxy2center(pred_list)
+
+    up = output_coordinates[output_coordinates[:, 1].astype(float) < 720 / 2]
+    down = output_coordinates[output_coordinates[:, 1].astype(float) > 720 / 2]
+
+
+    # Get the indices that would sort the array based on the first column
+    sorted_indices_up = np.argsort(up[:, 0].astype(float))
+    sorted_indices_down = np.argsort(down[:, 0].astype(float))
+
+    # Use the indices to sort the array
+    sorted_data_up = up[sorted_indices_up]
+    sorted_data_down = down[sorted_indices_down]
+
+    return np.vstack((sorted_data_up,sorted_data_down))
 
 def find_pos(image,w_pix,x,y) :
     # pixel_size_mm = w_h / known_height
