@@ -43,3 +43,9 @@ class RealSense:
         self.color_sensor.set_option(rs.option.enable_auto_exposure, False)
         self.color_sensor.set_option(rs.option.exposure, self.light_level)
         self.color_sensor.set_option(rs.option.enable_auto_white_balance, True)
+
+    def light_set(self,light_level):
+        self.light_level = light_level
+        self.color_sensor.set_option(rs.option.enable_auto_exposure, False)
+        self.color_sensor.set_option(rs.option.exposure, self.light_level)
+        self.color_sensor.set_option(rs.option.enable_auto_white_balance, True)
