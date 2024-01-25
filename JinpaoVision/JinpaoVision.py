@@ -26,6 +26,7 @@ class BoxDetect:
         self.P = []
 
         self.BoxClass = np.array(['red_box', 'red_strip', 'green_box', 'green_strip', 'blue_box', 'blue_strip'])
+        self.is_debug  = False
     def findPath_INIT(self,current_time,runtime ,min_distance, max_distance):
 
         self.min_distance = min_distance
@@ -55,7 +56,8 @@ class BoxDetect:
             if(len(pred_list)):
                 pred_list[:, -1] = self.BoxClass[pred_list[:, -1].astype(int)]
                 # print(pred_list)
-                self.display.show_detect(pred_list, contour_area)
+                if(self.is_debug):
+                    self.display.show_detect(pred_list, contour_area)
             
                 for pred in pred_list:
                     x1, y1, x2, y2, _ , c = pred
@@ -68,15 +70,20 @@ class BoxDetect:
                         depth_value = depth_data[int(y1+int(h)//2), int(x1+int(w)//2)]
                         self.P.append([pos[0], pos[1], depth_value])
                         self.C.append(str(c).split('_')[0])
-
-            cv2.imshow("Detect", contour_area)
-            cv2.waitKey(1)
+            if(self.is_debug):
+                cv2.imshow("Detect", contour_area)
+                cv2.waitKey(1)
             return 1
         else:
             # print(self.P,self.C)
             self.Position, self.Color = ff.positionFilter(self.P,self.C)
             self.min_path, self.color, min_cost, CostA = ff.BoxPath([2,1], self.Color)
-            print(self.color, self.min_path)
+
+            # print(self.color, self.min_path)
+            self.min_path = np.array([self.min_path[0] - np.array([2,1]),self.min_path[1] - self.min_path[0],self.min_path[2]- self.min_path[1]])
+            self.min_path[:, 0] = self.min_path[:, 0] * (-1) * 20
+            self.min_path[:, 1] = self.min_path[:, 1]* 25
+
             return 0
 
     def findPickShelf(self,min_distance, max_distance):
@@ -135,8 +142,9 @@ class BoxDetect:
         
             if error != None:
                 self.Error = error
-        cv2.imshow("Sss",contour_area)
-        cv2.waitKey(1)
+        if(self.is_debug):
+            cv2.imshow("ss",contour_area)
+            cv2.waitKey(1)
         return self.Error
 
     def finetune(self):
@@ -201,7 +209,6 @@ class BoxDetect:
         pred = self.model(contour_area)
         pred_list = np.array(pred.xyxy[0][:].tolist()).astype(object)
         
-
         if(len(pred_list)):
             pred_list[:, -1] = self.BoxClass[pred_list[:, -1].astype(int)]
             # pred_list = pred_list[pred_list[:,4] > 0.7]
@@ -238,13 +245,13 @@ class BoxDetect:
                 dir = weight[2]
                 if(np.all(arr == pat)):
                     error = dir
-                
-        
             if error != None:
                 self.Error = error
-        cv2.imshow("Sss",contour_area)
-        cv2.waitKey(1)
+        if (self.is_debug):  
+            cv2.imshow("Sss",contour_area)
+            cv2.waitKey(1)
         return self.Error
+
 
 
 
