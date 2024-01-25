@@ -9,7 +9,16 @@ frame_count = 0
 x_sum = 0
 y_sum = 0
 scale_Place = 1.164
-scale_Pick = 1.164
+disperround = 100
+dis = int(100*(859.437/360))
+# dis = 0
+scale_Pick = ((850*np.tan(np.radians(34.5))))/((250*np.tan(np.radians(34.5))))
+scale_Pickx2 = (((780-dis)*np.tan(np.radians(34.5))))/480
+scale_Picky2 = (((780-dis)*np.tan(np.radians(21))))/270
+scale_Per = 0.294117647
+print(scale_Pickx2,scale_Picky2)
+maxHandpos = (int(480-(193/scale_Pickx2)),int(270-(100/scale_Picky2)))
+minHandpos = (int(480-(193/scale_Pickx2)),int(270+(125/scale_Picky2)))
 scalex = ((600*np.tan(np.radians(34.5))))/((470*np.tan(np.radians(34.5))))
 scaley = ((600*np.tan(np.radians(21))))/((470*np.tan(np.radians(21))))
 theta = 0
@@ -51,7 +60,7 @@ class flagDetect:
         depth1 = Getimage(min_distance = 0,
                           max_distance = 0.30,
                           min_distance2 = 0.5,
-                          max_distance2 = 0.65)
+                          max_distance2 = 0.65)#max_distance = 0.3
         for cnt in depth1.find_Depth(depth_data)[1]: 
             contour_area = cv2.contourArea(cnt)
             if contour_area > 600 and contour_area < 5000:#limit lower BB
@@ -60,22 +69,22 @@ class flagDetect:
                 cv2.rectangle(color_data, (x3, y3), (x3 + w3, y3 + h3), (0, 0, 255), 2)
                 cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
                 cv2.circle(color_data, center, 1, (0, 255, 0), 5)
-                target_X,target_Y = pixel_convert(mid_pixel,center,scale_Pick)
+                cv2.circle(color_data,maxHandpos,1, (0, 0, 255), 5)
+                cv2.circle(color_data,(int(480-((480-center[0])*scale_Per)),center[1]),1, (255, 0, 0), 5)
                 cv2.imshow("RGB Frame with ROI", color_data)
+                target_X,target_Y = pixel_convert(find_Handpos(scale_Pickx2,scale_Picky2,"max"),center,1)
                 #Open to test FPS
                 # end_time = time.time()
                 # elapsed_time = end_time - start_time
                 # print(1/elapsed_time)q
 
                 return target_X,target_Y
-                # return target_X,target_Y
-        # cv2.circle(color_data, (480,270),1, (0, 0, 255), 5)
+
+        cv2.circle(color_data, (480,270), 1, (0, 255, 0), 5)
+        cv2.circle(color_data,maxHandpos,1, (0, 255, 0), 5)#Lower Max
+        cv2.circle(color_data,minHandpos,1, (0, 255, 0), 5)#Lower Min
+        cv2.line(color_data,(305,0),(305,540),(255,0,0),2)
         cv2.imshow("RGB Frame with ROI", color_data)
-        # # print(scale)
-        # cv2.imshow("ROI Frame", depth1.find_Depth(min_distance,max_distance,min_distance2,max_distance2)[0])
-        # print(100/scale,150/scale,200/scale)
-        # Wait for a key press, and exit the loop if 'q' is pressed
-        # out.write(color_data)
     def another_F(self):
         vertical_offset = 10
         frame = cv2.resize(self.real.get_frame()[1],(960,540))
@@ -119,20 +128,11 @@ class flagDetect:
                 x1, y1, x2, y2 = line[0]
                 if abs(x1 - x2) < vertical_offset:
                     cv2.line(black_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        # resized_frame = cv2.resize(frame, (960, 540))
-        # resized_black_image = cv2.resize(black_image, (960, 540))
-        # cv2.imshow('Webcam Circles Detection', resized_frame)
-        # cv2.imshow('Detected Circles and Lines', resized_black_image)
     def place_blocking(self,depth1):
         # while True:
         timestamp = time.time()
-        # if aa == 1:
-        #     time.sleep(count_time)
         depth_data =  cv2.resize(self.real.get_frame()[0],(960,540))
         color_data =  cv2.resize(self.real.get_frame()[1],(960,540))
-        # if aa == 1:
-        #     cv2.imshow("fireeeee", color_data)
-        #     aa = 0
         for cnt in depth1.find_Depth(depth_data)[2]: 
             contour_area = cv2.contourArea(cnt)
             if contour_area > 1500:#limit lower BB
@@ -159,8 +159,8 @@ class flagDetect:
         handPosX = 0*scale_Place
         handPosY = (270-self.center[1])
         #Show hand position
-        cv2.circle(color_data,(305,200), 4, (0, 255, 0), 2)
-        cv2.line(color_data,(305,0),(305,540),(255,0,0),2)
+        cv2.circle(color_data,(305,200), 4, (0, 255, 0), 2)#Griper Workspace in Lower and Max range
+        cv2.line(color_data,(305,0),(305,540),(255,0,0),2)#Griper Workspace in Lower
         cv2.circle(color_data, (self.center[0]-int(handPosX),self.center[1]+int(handPosY)), 2, (0, 0, 0), 2) 
         # print(handPosY)
 
@@ -237,13 +237,6 @@ class flagDetect:
         cv2.imshow("RGB Frame with ROI", color_data)
         # print(scale)
         cv2.imshow("ROI Frame", depth1.find_Depth(depth_data)[0])
-        # print(100/scale,150/scale,200/scale)
-        # Wait for a key press, and exit the loop if 'q' is pressed
-        # out.write(color_data)
-        # key = cv2.waitKey(1) & 0xFF
-        # if key == ord('q'):
-        #     # out.release()
-        #     break
     def calibration_(self):
         #Open to test FPS
         # start_time = time.time()
@@ -277,14 +270,6 @@ class flagDetect:
                 # print(1/elapsed_time)
 
                 return target_X,target_Y
-                # return target_X,target_Y
-        # cv2.circle(color_data, (480,270),1, (0, 0, 255), 5)
-        # cv2.imshow("RGB Frame with ROI", color_data)
-        # # print(scale)
-        # cv2.imshow("ROI Frame", depth1.find_Depth(min_distance,max_distance,min_distance2,max_distance2)[0])
-        # print(100/scale,150/scale,200/scale)
-        # Wait for a key press, and exit the loop if 'q' is pressed
-        # out.write(color_data)
 FlagDet = flagDetect()
 depth1 = Getimage(min_distance = 0.47,
                     max_distance = 0.57,
@@ -294,12 +279,12 @@ while(1):
     pos = FlagDet.flag_Pos()
     print(pos)
     key = cv2.waitKey(1) & 0xF
-while(1):
-    hold = FlagDet.place_blocking(depth1)
-    print(hold)
-    if hold != None:
-        break
-    key = cv2.waitKey(1) & 0xF
+# while(1):
+#     hold = FlagDet.place_blocking(depth1)
+#     print(hold)
+#     # if hold != None:
+#     #     break
+#     key = cv2.waitKey(1) & 0xF
 
 # while(1):
 #     pos = FlagDet.another_F()
