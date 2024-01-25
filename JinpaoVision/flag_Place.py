@@ -61,7 +61,7 @@ class flagDetect:
                 cv2.circle(color_data, center, int((w3/4)+(h3/2)), (0, 0, 255), 5)
                 cv2.circle(color_data, center, 1, (0, 255, 0), 5)
                 target_X,target_Y = pixel_convert(mid_pixel,center,scale_Pick)
-                # cv2.imshow("RGB Frame with ROI", color_data)
+                cv2.imshow("RGB Frame with ROI", color_data)
                 #Open to test FPS
                 # end_time = time.time()
                 # elapsed_time = end_time - start_time
@@ -70,7 +70,7 @@ class flagDetect:
                 return target_X,target_Y
                 # return target_X,target_Y
         # cv2.circle(color_data, (480,270),1, (0, 0, 255), 5)
-        # cv2.imshow("RGB Frame with ROI", color_data)
+        cv2.imshow("RGB Frame with ROI", color_data)
         # # print(scale)
         # cv2.imshow("ROI Frame", depth1.find_Depth(min_distance,max_distance,min_distance2,max_distance2)[0])
         # print(100/scale,150/scale,200/scale)

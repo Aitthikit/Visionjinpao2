@@ -4,7 +4,7 @@ import numpy as np
 from func.Realsense import RealSense
 from func.Display import DISPLAY
 from func.ColorCalibrate import CALIRBRATE
-import my_Function as ff
+import func.my_Function as ff
 import torch
 import time
 
@@ -65,8 +65,8 @@ def boxy(pred_list):
 
 def main():
     #camera config
-    rs = RealSense(1280,720, "Box")
-    rs.light_level = 190
+    rs = RealSense(1280,720, "Flag")
+    rs.light_level = 250
     rs.light_add()
     model = torch.hub.load('WongKinYiu/yolov7','custom','model/yolov7_tiny.pt')
     model.eval()  # Set the model to evaluation mode
@@ -97,7 +97,7 @@ def main():
         cv2.imshow('con', image_with_adjusted_exposure)
 
 
-        roi_mask, contour_area = ff.create_ROI(0.2,0.5,image_with_adjusted_exposure, depth_data)
+        roi_mask, contour_area = ff.create_ROI(0,0.6,image_with_adjusted_exposure, depth_data)
         cv2.imshow("Roi",contour_area)        
         # Display the frame
         cv2.circle(frame, points_r, 1,(0, 255, 0))
